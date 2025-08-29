@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Speed Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for the app */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a1a; /* Dark background */
+            color: #d1d5db; /* Default text color */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Blinking cursor animation */
+        .cursor {
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { border-color: transparent; }
+            50% { border-color: #f59e0b; } /* Amber color for cursor */
+        }
+
+        /* Smooth transitions for UI elements */
+        #wordsContainer span, #timer, #restartButton, .time-option {
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* Styling for correct and incorrect characters */
+        .correct {
+            color: #a3e635; /* Lime green */
+        }
+
+        .incorrect {
+            color: #ef4444; /* Red */
+        }
+        
+        /* Hide the actual input field */
+        #hiddenInput {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            opacity: 0;
+        }
+    </style>
+    <script>
+        // Tailwind dark mode configuration
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-gray-900 text-gray-300">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl w-full text-center">
+        
+        <h1 class="text-4xl md:text-5xl font-bold text-amber-400 mb-4">Typing Test</h1>
+        <p class="text-gray-400 mb-8">Test your typing speed and accuracy.</p>
+
+        <!-- Main Test Area -->
+        <div id="testArea" class="relative">
+            <!-- Timer and Time Options -->
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
+                <div id="timer" class="text-4xl font-bold text-amber-400 w-24">30</div>
+                <div class="flex gap-2 bg-gray-800 p-1 rounded-lg">
+                    <button class="time-option px-3 py-1 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-400" data-time="15">15s</button>
+                    <button class="time-option px-3 py-1 rounded-md bg-amber-500 text-gray-900 font-semibold hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400" data-time="30">30s</button>
+                    <button class="time-option px-3 py-1 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-400" data-time="60">60s</button>
+                    <button class="time-option px-3 py-1 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-amber-400" data-time="infinite">∞</button>
+                </div>
+            </div>
+
+            <!-- Words to be typed -->
+            <div id="wordsContainer" class="text-2xl md:text-3xl leading-relaxed tracking-wider bg-gray-800 p-6 rounded-lg shadow-lg cursor-text select-none h-40 overflow-hidden flex flex-wrap items-center justify-center content-center gap-x-2 gap-y-2">
+                <!-- Words will be dynamically inserted here -->
+            </div>
+            
+            <!-- Hidden input to capture user typing on mobile -->
+            <input type="text" id="hiddenInput" autofocus>
+
+            <!-- Restart Button -->
+            <button id="restartButton" class="mt-8 px-6 py-3 bg-amber-500 text-gray-900 font-bold rounded-lg hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-amber-400 transition-transform transform hover:scale-105">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 4l1.5 1.5A9 9 0 0120.5 15" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 20l-1.5-1.5A9 9 0 003.5 9" />
+                </svg>
+                Restart
+            </button>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="resultsScreen" class="hidden mt-8 bg-gray-800 p-8 rounded-lg shadow-2xl">
+            <h2 class="text-3xl font-bold text-amber-400 mb-4">Test Complete!</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xl">
+                <div class="p-4 bg-gray-700 rounded-lg">
+                    <p class="text-gray-400 text-sm">WPM</p>
+                    <p id="wpmResult" class="text-4xl font-bold text-white">0</p>
+                </div>
+                <div class="p-4 bg-gray-700 rounded-lg">
+                    <p class="text-gray-400 text-sm">Accuracy</p>
+                    <p id="accuracyResult" class="text-4xl font-bold text-white">0%</p>
+                </div>
+                <div class="p-4 bg-gray-700 rounded-lg">
+                    <p class="text-gray-400 text-sm">Characters</p>
+                    <p id="charsResult" class="text-2xl font-bold text-white">
+                        <span id="correctChars" class="text-lime-400">0</span>/<span id="incorrectChars" class="text-red-400">0</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const wordsContainer = document.getElementById('wordsContainer');
+        const timerEl = document.getElementById('timer');
+        const restartButton = document.getElementById('restartButton');
+        const timeOptions = document.querySelectorAll('.time-option');
+        const testArea = document.getElementById('testArea');
+        const resultsScreen = document.getElementById('resultsScreen');
+        const wpmResultEl = document.getElementById('wpmResult');
+        const accuracyResultEl = document.getElementById('accuracyResult');
+        const charsResultEl = document.getElementById('charsResult');
+        const correctCharsEl = document.getElementById('correctChars');
+        const incorrectCharsEl = document.getElementById('incorrectChars');
+        const hiddenInput = document.getElementById('hiddenInput');
+
+        // Word list for the test
+        const words = [
+            'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'I', 'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at', 'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she', 'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what', 'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go', 'me', 'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know', 'take', 'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other', 'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also', 'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way', 'even', 'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us'
+        ];
+
+        // Game state variables
+        let timeLimit = 30;
+        let timeLeft = timeLimit;
+        let timerInterval;
+        let isTestActive = false;
+        let currentWordIndex = 0;
+        let currentCharIndex = 0;
+        let correctChars = 0;
+        let incorrectChars = 0;
+        let totalCharsTyped = 0;
+
+        // --- Functions ---
+
+        /**
+         * Generates a new set of random words and populates the container.
+         */
+        function generateWords() {
+            wordsContainer.innerHTML = '';
+            const wordCount = 30;
+            const randomWords = [];
+            for (let i = 0; i < wordCount; i++) {
+                const randomIndex = Math.floor(Math.random() * words.length);
+                randomWords.push(words[randomIndex]);
+            }
+
+            // Create span for each letter for individual styling
+            randomWords.forEach(word => {
+                const wordDiv = document.createElement('div');
+                wordDiv.classList.add('word');
+                word.split('').forEach(char => {
+                    const charSpan = document.createElement('span');
+                    charSpan.textContent = char;
+                    wordDiv.appendChild(charSpan);
+                });
+                wordsContainer.appendChild(wordDiv);
+            });
+
+            // Set the initial cursor
+            setCursor();
+        }
+
+        /**
+         * Sets the cursor on the current character to be typed.
+         */
+        function setCursor() {
+            // Remove cursor from any previous character
+            document.querySelectorAll('.cursor').forEach(el => el.classList.remove('cursor'));
+
+            // Add cursor to the current character
+            const words = wordsContainer.querySelectorAll('.word');
+            if (words[currentWordIndex]) {
+                const chars = words[currentWordIndex].querySelectorAll('span');
+                if (chars[currentCharIndex]) {
+                    chars[currentCharIndex].classList.add('cursor');
+                    chars[currentCharIndex].style.borderBottom = '2px solid';
+                }
+            }
+        }
+        
+        /**
+         * Resets the entire test to its initial state.
+         */
+        function resetTest() {
+            clearInterval(timerInterval);
+            isTestActive = false;
+
+            if (timeLimit === 'infinite') {
+                timerEl.textContent = '∞';
+                timeLeft = Infinity;
+            } else {
+                timeLeft = timeLimit;
+                timerEl.textContent = timeLeft;
+            }
+            
+            currentWordIndex = 0;
+            currentCharIndex = 0;
+            correctChars = 0;
+            incorrectChars = 0;
+            totalCharsTyped = 0;
+
+            testArea.classList.remove('hidden');
+            resultsScreen.classList.add('hidden');
+            
+            generateWords();
+            hiddenInput.focus();
+        }
+
+        /**
+         * Starts the countdown timer if a time limit is set.
+         */
+        function startTimer() {
+            isTestActive = true;
+
+            if (timeLimit === 'infinite') {
+                return; // Don't start a timer in infinite mode
+            }
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerEl.textContent = timeLeft;
+                if (timeLeft === 0) {
+                    endTest();
+                }
+            }, 1000);
+        }
+
+        /**
+         * Ends the test and displays the results.
+         */
+        function endTest() {
+            clearInterval(timerInterval);
+            isTestActive = false;
+            testArea.classList.add('hidden');
+            resultsScreen.classList.remove('hidden');
+
+            // Calculate WPM (Words Per Minute)
+            // A "word" is standardized as 5 characters
+            const duration = timeLimit;
+            const wpm = Math.round((correctChars / 5) / (duration / 60));
+            wpmResultEl.textContent = wpm;
+
+            // Calculate Accuracy
+            const accuracy = totalCharsTyped > 0 ? Math.round((correctChars / totalCharsTyped) * 100) : 0;
+            accuracyResultEl.textContent = `${accuracy}%`;
+
+            // Display character stats
+            correctCharsEl.textContent = correctChars;
+            incorrectCharsEl.textContent = incorrectChars;
+        }
+
+        /**
+         * Handles all keydown events for typing.
+         * @param {KeyboardEvent} e The keyboard event.
+         */
+        function handleKeyDown(e) {
+            if (!isTestActive && e.key.length === 1) {
+                startTimer();
+            }
+
+            if (!isTestActive && timeLimit !== 'infinite') return;
+
+            const words = wordsContainer.querySelectorAll('.word');
+            const currentWord = words[currentWordIndex];
+            if (!currentWord) return;
+
+            const chars = currentWord.querySelectorAll('span');
+            const expectedChar = chars[currentCharIndex]?.textContent;
+
+            // Handle character typing
+            if (e.key.length === 1 && e.key !== ' ') {
+                if (currentCharIndex < chars.length) {
+                    totalCharsTyped++;
+                    if (e.key === expectedChar) {
+                        chars[currentCharIndex].classList.add('correct');
+                        correctChars++;
+                    } else {
+                        chars[currentCharIndex].classList.add('incorrect');
+                        incorrectChars++;
+                    }
+                    currentCharIndex++;
+                }
+            }
+            // Handle Spacebar
+            else if (e.key === ' ' && currentCharIndex > 0) {
+                e.preventDefault(); // Prevent scrolling
+                if (currentCharIndex === chars.length) {
+                    currentWordIndex++;
+                    currentCharIndex = 0;
+                }
+            }
+            // Handle Backspace
+            else if (e.key === 'Backspace') {
+                e.preventDefault();
+                if (currentCharIndex > 0) {
+                    currentCharIndex--;
+                    const charToReset = chars[currentCharIndex];
+                    if (charToReset.classList.contains('correct')) correctChars--;
+                    if (charToReset.classList.contains('incorrect')) incorrectChars--;
+                    totalCharsTyped--;
+                    charToReset.classList.remove('correct', 'incorrect');
+                } else if (currentWordIndex > 0) {
+                    currentWordIndex--;
+                    const prevWord = words[currentWordIndex];
+                    currentCharIndex = prevWord.querySelectorAll('span').length;
+                }
+            }
+
+            setCursor();
+        }
+
+
+        // --- Event Listeners ---
+
+        document.addEventListener('keydown', handleKeyDown);
+        
+        // Allow clicking on the words container to focus the hidden input
+        wordsContainer.addEventListener('click', () => hiddenInput.focus());
+
+        restartButton.addEventListener('click', resetTest);
+        
+        timeOptions.forEach(button => {
+            button.addEventListener('click', () => {
+                // Update time limit based on selection
+                const selectedTime = button.dataset.time;
+                timeLimit = selectedTime === 'infinite' ? 'infinite' : parseInt(selectedTime);
+                
+                // Update active button style
+                timeOptions.forEach(btn => {
+                    btn.classList.remove('bg-amber-500', 'text-gray-900', 'font-semibold');
+                    btn.classList.add('hover:bg-gray-700');
+                });
+                button.classList.add('bg-amber-500', 'text-gray-900', 'font-semibold');
+                button.classList.remove('hover:bg-gray-700');
+
+                // Reset the test with the new time
+                resetTest();
+            });
+        });
+
+        // Initialize the test on page load
+        resetTest();
+    </script>
+</body>
+</html>
